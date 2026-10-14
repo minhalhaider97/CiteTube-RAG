@@ -13,3 +13,7 @@ alembic
 python-dotenv
 yt-dlp
 youtube-transcript-api
+sentence-transformers
+flask
+ipykernel
+supabase
