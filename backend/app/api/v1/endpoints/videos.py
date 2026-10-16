@@ -12,9 +12,9 @@ def ingest(request: VideoSubmitRequest, db: Session = Depends(get_db)):
     try:
         video, reused = submit_video(db, request.url)
         return VideoResponse(
-            id=video.id, youtube_id=video.youtube_id, title=video.title,
+            id=video.id, youtube_id=video.youtube_video_id, title=video.title,
             channel_name=video.channel_name, duration_seconds=video.duration_seconds,
-            ingestion_status=video.ingestion_status, reused_existing=reused,
+            ingestion_status=video.status, reused_existing=reused,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

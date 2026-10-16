@@ -4,8 +4,8 @@ from app.core.config import settings
 
 def generate_answer(prompt: str) -> str:
     """Invoke Groq LLM via LangChain's ChatGroq to generate grounded answers."""
-    api_key = getattr(settings, "GROQ_API_KEY", None)
-    model_name = getattr(settings, "GROQ_CHAT_MODEL", "llama-3.3-70b-versatile")
+    api_key = getattr(settings, "groq_api_key", None)
+    model_name = getattr(settings, "groq_chat_model", "qwen/qwen3.8-27b")
 
     if not api_key:
         return "Error communicating with LLM service: GROQ_API_KEY is missing from environment variables."

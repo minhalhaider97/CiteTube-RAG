@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field
+from uuid import UUID
 
 class VideoSubmitRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
 class VideoResponse(BaseModel):
-    id: int
+    id: UUID
     youtube_id: str
     title: str
     channel_name: str | None

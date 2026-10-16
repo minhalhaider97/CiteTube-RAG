@@ -7,9 +7,9 @@ from app.ingestion.youtube import extract_video_id
 
 def get_video_status(db: Session, submitted_url: str) -> dict:
     video_id = extract_video_id(submitted_url)
-    video = db.scalar(select(Video).where(Video.youtube_id == video_id))
+    video = db.scalar(select(Video).where(Video.youtube_video_id == video_id))
     if not video:
-        return {"youtube_id": video_id, "ingestion_status": "not_found"}
+        return {"youtube_id": video_id, "status": "not_found"}
     chunk_count = db.scalar(
         select(__import__("sqlalchemy").func.count(TranscriptChunk.id))
         .where(TranscriptChunk.video_id == video.id)
