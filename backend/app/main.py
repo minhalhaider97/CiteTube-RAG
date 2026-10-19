@@ -1,8 +1,16 @@
 from fastapi import FastAPI
 from app.api.v1.router import api_router
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from app.agent.checkpointer import get_checkpointer, close_checkpointer
 
-app = FastAPI(title="YouTube RAG API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    get_checkpointer()
+    yield
+    close_checkpointer()
+
+app = FastAPI(title="YouTube RAG API", version="0.1.0", lifespan=lifespan)
 
 # Configure CORS so the Vite frontend (port 5173) can talk to FastAPI
 app.add_middleware(

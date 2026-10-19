@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -58,6 +60,7 @@ def ingest_video(db: Session, submitted_url: str) -> tuple[Video, bool]:
         ])
         video.status = "completed"
         video.error_message = None
+        video.processed_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(video)
         return video, False
@@ -66,7 +69,7 @@ def ingest_video(db: Session, submitted_url: str) -> tuple[Video, bool]:
         # Re-fetch row after rollback so failure status can be committed.
         failed_video = db.scalar(select(Video).where(Video.youtube_video_id == video_id))
         if failed_video:
-            failed_video.ingestion_status = "failed"
-            failed_video.ingestion_error = str(exc)[:2000]
+            failed_video.status = "failed"
+            failed_video.error_message = str(exc)[:2000]
             db.commit()
         raise

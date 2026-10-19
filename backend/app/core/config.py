@@ -4,7 +4,9 @@ from pathlib import Path
 class Settings(BaseSettings):
     database_url: str
     groq_api_key: str
-    groq_chat_model: str
+    groq_chat_model: str                       # main model (you already have this)
+    groq_fast_model: str | None = None                  # fast model for the first four tasks
+    groq_reasoning_effort: str | None = None             # per-task overrides
     # ... your other fields ...
 
     model_config = SettingsConfigDict(

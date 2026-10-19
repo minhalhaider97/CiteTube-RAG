@@ -1,11 +1,13 @@
 import uuid
 from typing import Any, List, Tuple
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models.chat import Chat, Message
 from app.db.models.video import Video
-from app.rag.chain import run_rag_chain
+from app.agent.graph import run_agent
+from app.agent.checkpointer import delete_thread_memory
+from app.agent.memory import load_history
 
 
 def create_chat_session(
@@ -83,8 +85,10 @@ def delete_chat_session(
     if not chat:
         return False
 
+    chat_id_str = str(chat.id)
     db.delete(chat)
     db.commit()
+    delete_thread_memory(chat_id_str)   # drop the agent's checkpoints too
     return True
 
 
@@ -136,16 +140,20 @@ def process_rag_query(
     query: str
 ) -> Tuple[Message, Message, dict[str, Any]]:
     """
-    Executes the full RAG workflow:
-    1. Persists the user query as a Message.
-    2. Runs `run_rag_chain(db, video_id, query)`.
-    3. Persists the AI response with citation metadata in message_metadata.
+    Executes the agentic RAG workflow:
+    1. Loads windowed chat history (memory) BEFORE saving the new message.
+    2. Persists the user query as a Message.
+    3. Runs the LangGraph agent against the chat's video.
+    4. Persists the AI response with citations in message_metadata.
     """
     chat = get_chat_by_id(db, chat_id=chat_id, user_id=user_id)
     if not chat:
         raise ValueError("Chat session not found or access denied.")
 
-    # 1. Store User Message
+    # 1. Previous turns from the DB (used to seed the checkpointer for older chats)
+    history = load_history(db, chat.id)
+
+    # 2. Store user message
     user_message = Message(
         chat_id=chat.id,
         role="user",
@@ -155,22 +163,32 @@ def process_rag_query(
     db.add(user_message)
     db.commit()
 
-    # 2. Execute RAG Chain against the video ID attached to the chat
-    rag_result = run_rag_chain(db, video_id=chat.video_id, query=query)
-    answer = rag_result.get("answer", "")
-    citations = rag_result.get("citations", [])
+    # 3. Run the agent graph
+    result = run_agent(
+        db,
+        video_id=chat.video_id,
+        question=query,
+        thread_id=str(chat.id),   # one checkpoint thread per chat
+        db_history=history,       # only used to seed memory when the thread has no checkpoint yet
+    )
 
-    # 3. Store Assistant Message with Citations in `message_metadata`
+    # 4. Store assistant message
     assistant_message = Message(
         chat_id=chat.id,
         role="assistant",
-        content=answer,
-        message_metadata={"citations": citations}
+        content=result["answer"],
+        message_metadata={
+            "citations": result["citations"],
+            "sub_questions": result["sub_questions"],
+            "standalone_question": result["standalone_question"],
+            "grounded": result["grounded"],
+        }
     )
     db.add(assistant_message)
+    chat.updated_at = func.now()   # keeps "newest first" ordering correct
     db.commit()
 
     db.refresh(user_message)
     db.refresh(assistant_message)
 
-    return user_message, assistant_message, rag_result
+    return user_message, assistant_message, result
